@@ -12,7 +12,8 @@ namespace DennokoWorks.MatSync
         private Vector2 scroll, resultScroll;
         private string message;
         private TransferResult result;
-        private bool stale, onlyDifferences, showDetails;
+        private bool stale, showDetails;
+        private bool onlyDifferences = true;
         private static readonly string[] Choices = { "変更しない", "左を採用", "右を採用" };
 
         internal static void Open(Material left, Material right)
@@ -22,6 +23,7 @@ namespace DennokoWorks.MatSync
             window.left = left;
             window.right = right;
             window.result = null;
+            if (!alreadyOpen) window.onlyDifferences = true;
             window.RefreshComparison(false);
             window.minSize = new Vector2(780, 420);
             if (!alreadyOpen) window.position = new Rect(window.position.x, window.position.y, 1050, 700);
