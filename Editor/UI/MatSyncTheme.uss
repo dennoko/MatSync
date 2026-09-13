@@ -251,3 +251,38 @@
     padding: 6px 10px;
     margin: 4px 0;
 }
+
+/* ─── バージョンラベル・更新通知 ────────────────────────────── */
+
+.dennoko-root .dennoko-version-label {
+    font-size: 11px;
+    color: var(--dennoko-text-tertiary);
+    -unity-text-align: middle-left;
+}
+
+.dennoko-root .dennoko-version-label--update {
+    color: var(--matsync-neon-green);
+    -unity-font-style: bold;
+}
+
+.dennoko-root .dennoko-version-label--error {
+    color: var(--dennoko-semantic-warning);
+}
+
+.dennoko-root .dennoko-version-reload-button {
+    width: 18px;
+    height: 18px;
+    margin-left: 4px;
+    padding: 0;
+    font-size: 12px;
+    color: var(--dennoko-text-tertiary);
+    background-color: transparent;
+    border-width: 0;
+    -unity-text-align: middle-center;
+}
+
+.dennoko-root .dennoko-version-reload-button:hover {
+    color: var(--dennoko-text-primary);
+    background-color: var(--dennoko-surface-2);
+}
+

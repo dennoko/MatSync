@@ -61,6 +61,13 @@ namespace DennokoWorks.MatSync
         private Label statusLabel;
         private IVisualElementScheduledItem statusResetSchedule;
 
+        // バージョン管理
+        private Label _versionLabel;
+        private Button _versionReloadButton;
+        private DennokoVersionChecker.Result _versionResult =
+            new DennokoVersionChecker.Result { State = DennokoVersionChecker.State.Checking, LocalVersion = "0.0.0" };
+
+
         [MenuItem("Tools/dennokoworks/MatSync")]
         public static void Open()
         {
@@ -130,6 +137,7 @@ namespace DennokoWorks.MatSync
             BindElements(root);
             SwitchMode(mode);
             UpdateUI();
+            StartVersionCheck();
         }
 
         private static void LoadAndApplyStyles(VisualElement root)
@@ -333,6 +341,18 @@ namespace DennokoWorks.MatSync
             resultFoldout = root.Q<Foldout>("result-foldout");
 
             statusLabel = root.Q<Label>("status-label");
+
+            // バージョン管理
+            _versionLabel = root.Q<Label>("version-label");
+            _versionReloadButton = root.Q<Button>("version-reload-button");
+            if (_versionReloadButton != null)
+            {
+                _versionReloadButton.clicked += () =>
+                {
+                    MatSyncVersion.ForceRecheck();
+                    LoadVersionResultFromSessionState();
+                };
+            }
         }
 
         private void SwitchMode(int newMode)
@@ -580,5 +600,81 @@ namespace DennokoWorks.MatSync
 
         private void SetStatusMessage(string msg) => SetStatus(msg, StatusType.Info);
         private void ShowStatusError(string msg) => SetStatus(msg, StatusType.Error);
+
+        // ─── バージョン管理 ─────────────────────────────────────────────
+
+        private void StartVersionCheck()
+        {
+            LoadVersionResultFromSessionState();
+            MatSyncVersion.StartCheckBackgroundTask();
+        }
+
+        internal void LoadVersionResultFromSessionState()
+        {
+            string local  = MatSyncVersion.Current;
+            string latest = SessionState.GetString(MatSyncVersion.VerCheckLatestKey, string.Empty);
+            bool   done   = SessionState.GetBool(MatSyncVersion.VerCheckDoneKey, false);
+            bool   error  = SessionState.GetBool(MatSyncVersion.VerCheckErrorKey, false);
+
+            DennokoVersionChecker.State state;
+            if (!done)
+                state = DennokoVersionChecker.State.Checking;
+            else if (error || string.IsNullOrEmpty(latest))
+                state = DennokoVersionChecker.State.Error;
+            else if (DennokoVersionChecker.IsUpdateAvailable(latest, local))
+                state = DennokoVersionChecker.State.UpdateAvailable;
+            else
+                state = DennokoVersionChecker.State.UpToDate;
+
+            _versionResult = new DennokoVersionChecker.Result
+            {
+                State = state,
+                LocalVersion = local,
+                LatestVersion = latest,
+                Url = SessionState.GetString(MatSyncVersion.VerCheckUrlKey, string.Empty),
+                Message = SessionState.GetString(MatSyncVersion.VerCheckMessageKey, string.Empty)
+            };
+            ApplyVersionLabel();
+        }
+
+        private void ApplyVersionLabel()
+        {
+            if (_versionLabel == null) return;
+
+            var r = _versionResult;
+            string baseText = "v" + r.LocalVersion;
+            string text;
+            bool update = false, error = false;
+            switch (r.State)
+            {
+                case DennokoVersionChecker.State.UpdateAvailable:
+                    text = $"{baseText}  更新あり ({r.LatestVersion})";
+                    update = true;
+                    break;
+                case DennokoVersionChecker.State.Error:
+                    text = $"{baseText}  取得失敗";
+                    error = true;
+                    break;
+                case DennokoVersionChecker.State.Checking:
+                    text = $"{baseText}  確認中...";
+                    break;
+                default: // UpToDate
+                    text = baseText;
+                    break;
+            }
+            _versionLabel.text = text;
+            _versionLabel.EnableInClassList("dennoko-version-label--update", update);
+            _versionLabel.EnableInClassList("dennoko-version-label--error", error);
+
+            if (update && !string.IsNullOrEmpty(r.Url))
+            {
+                _versionLabel.tooltip = $"{r.Url}\nクリックしてリリースを開く";
+                _versionLabel.RegisterCallback<ClickEvent>(evt => Application.OpenURL(r.Url));
+            }
+            else
+            {
+                _versionLabel.tooltip = string.Empty;
+            }
+        }
     }
 }
