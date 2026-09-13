@@ -1,0 +1,166 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+
+    <!-- ウィンドウヘッダー -->
+    <ui:VisualElement class="dennoko-header">
+        <ui:Label text="MatSync" class="dennoko-title" />
+    </ui:VisualElement>
+    <ui:VisualElement class="dennoko-separator" />
+
+    <!-- モード切り替えタブ -->
+    <ui:VisualElement class="matsync-tabs">
+        <ui:Button name="tab-copy" text="コピー" class="matsync-tab-button matsync-tab-button--active" />
+        <ui:Button name="tab-compare" text="比較" class="matsync-tab-button" />
+        <ui:Button name="tab-sync" text="同時編集" class="matsync-tab-button" />
+    </ui:VisualElement>
+
+    <!-- メインスクロールビュー -->
+    <ui:ScrollView class="dennoko-scroll">
+
+        <!-- ==================== コピー モード ==================== -->
+        <ui:VisualElement name="view-copy">
+            <!-- コピー元カード -->
+            <ui:VisualElement class="dennoko-card">
+                <ui:VisualElement class="dennoko-card-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <ui:Label text="コピー元" class="dennoko-section-title" />
+                    <ui:Button name="copy-source-from-selection" text="選択中から指定" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 8px; margin: 0;" />
+                </ui:VisualElement>
+                <uie:ObjectField name="copy-source-field" type="UnityEngine.Material, UnityEngine.CoreModule" allow-scene-objects="false" />
+                <ui:VisualElement name="copy-source-drop" class="matsync-drop-area">
+                    <ui:Label text="Material または Hierarchy のメッシュをドロップ" class="matsync-drop-area-text" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- コピー先カード -->
+            <ui:VisualElement class="dennoko-card">
+                <ui:VisualElement class="dennoko-card-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <ui:Label name="copy-targets-title" text="コピー先リスト (0件)" class="dennoko-section-title" />
+                    <ui:VisualElement style="flex-direction: row;">
+                        <ui:Button name="copy-targets-from-selection" text="選択中を追加" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 6px; margin: 0 2px;" />
+                        <ui:Button name="copy-targets-clear" text="クリア" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 6px; margin: 0 2px;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                
+                <ui:VisualElement name="copy-targets-drop" class="matsync-drop-area">
+                    <ui:Label text="複数Material / メッシュをここへドロップして追加" class="matsync-drop-area-text" />
+                </ui:VisualElement>
+
+                <!-- コピー先マテリアル一覧コンテナ -->
+                <ui:ScrollView name="copy-targets-list" style="max-height: 180px; min-height: 40px; margin: 4px 0;" />
+                
+                <ui:Label name="copy-targets-valid-count" text="実行可能な対象: 0件" class="dennoko-text-tertiary" style="font-size: 11px; margin-top: 2px;" />
+            </ui:VisualElement>
+
+            <!-- オプション -->
+            <ui:VisualElement style="margin: 6px 12px;">
+                <ui:Toggle name="copy-textures-toggle" text="テクスチャを含める（Tiling / Offsetも転送）" value="false" />
+            </ui:VisualElement>
+
+            <!-- アクションフッター -->
+            <ui:VisualElement class="dennoko-card dennoko-footer">
+                <ui:Button name="copy-execute-button" text="コピーを実行" class="dennoko-button-primary" style="height: 32px;" />
+                <ui:Label name="copy-validation-message" class="dennoko-text-error" style="font-size: 11px; margin-top: 4px; display: none;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ==================== 比較 モード ==================== -->
+        <ui:VisualElement name="view-compare" style="display: none;">
+            <ui:VisualElement class="dennoko-card">
+                <ui:VisualElement class="dennoko-card-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <ui:Label text="左マテリアル" class="dennoko-section-title" />
+                    <ui:Button name="compare-left-from-selection" text="選択中から指定" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 8px; margin: 0;" />
+                </ui:VisualElement>
+                <uie:ObjectField name="compare-left-field" type="UnityEngine.Material, UnityEngine.CoreModule" allow-scene-objects="false" />
+                <ui:VisualElement name="compare-left-drop" class="matsync-drop-area">
+                    <ui:Label text="左マテリアル / メッシュをドロップ" class="matsync-drop-area-text" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="dennoko-card">
+                <ui:VisualElement class="dennoko-card-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <ui:Label text="右マテリアル" class="dennoko-section-title" />
+                    <ui:Button name="compare-right-from-selection" text="選択中から指定" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 8px; margin: 0;" />
+                </ui:VisualElement>
+                <uie:ObjectField name="compare-right-field" type="UnityEngine.Material, UnityEngine.CoreModule" allow-scene-objects="false" />
+                <ui:VisualElement name="compare-right-drop" class="matsync-drop-area">
+                    <ui:Label text="右マテリアル / メッシュをドロップ" class="matsync-drop-area-text" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- アクションフッター -->
+            <ui:VisualElement class="dennoko-card dennoko-footer">
+                <ui:Button name="compare-open-window-button" text="比較ウィンドウを開く" class="dennoko-button-primary" style="height: 32px;" />
+                <ui:Label name="compare-validation-message" class="dennoko-text-error" style="font-size: 11px; margin-top: 4px; display: none;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ==================== 同時編集 モード ==================== -->
+        <ui:VisualElement name="view-sync" style="display: none;">
+            <!-- 同期元カード -->
+            <ui:VisualElement class="dennoko-card">
+                <ui:VisualElement class="dennoko-card-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <ui:Label text="同期元" class="dennoko-section-title" />
+                    <ui:VisualElement style="flex-direction: row;">
+                        <ui:Button name="sync-source-ping" text="Inspectorで開く" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 6px; margin: 0 2px;" />
+                        <ui:Button name="sync-source-from-selection" text="選択中から指定" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 6px; margin: 0 2px;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <uie:ObjectField name="sync-source-field" type="UnityEngine.Material, UnityEngine.CoreModule" allow-scene-objects="false" />
+                <ui:VisualElement name="sync-source-drop" class="matsync-drop-area">
+                    <ui:Label text="同期元 Material / メッシュをドロップ" class="matsync-drop-area-text" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- 同期先カード -->
+            <ui:VisualElement class="dennoko-card">
+                <ui:VisualElement class="dennoko-card-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                    <ui:Label name="sync-targets-title" text="同期先リスト (0件)" class="dennoko-section-title" />
+                    <ui:VisualElement style="flex-direction: row;">
+                        <ui:Button name="sync-targets-from-selection" text="選択中を追加" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 6px; margin: 0 2px;" />
+                        <ui:Button name="sync-targets-clear" text="クリア" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 6px; margin: 0 2px;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement name="sync-targets-drop" class="matsync-drop-area">
+                    <ui:Label text="複数Material / メッシュをここへドロップして追加" class="matsync-drop-area-text" />
+                </ui:VisualElement>
+
+                <ui:ScrollView name="sync-targets-list" style="max-height: 180px; min-height: 40px; margin: 4px 0;" />
+                <ui:Label name="sync-targets-valid-count" text="実行可能な対象: 0件" class="dennoko-text-tertiary" style="font-size: 11px; margin-top: 2px;" />
+            </ui:VisualElement>
+
+            <!-- オプション -->
+            <ui:VisualElement style="margin: 6px 12px;">
+                <ui:Toggle name="sync-textures-toggle" text="テクスチャを含める（Tiling / Offsetも転送）" value="false" />
+            </ui:VisualElement>
+
+            <!-- 同期状態ステータス -->
+            <ui:VisualElement class="dennoko-card" style="padding: 8px 12px;">
+                <ui:Label name="sync-status-text" text="同期は停止しています。" class="dennoko-text-secondary" style="font-size: 11px;" />
+            </ui:VisualElement>
+
+            <!-- アクションフッター -->
+            <ui:VisualElement class="dennoko-card dennoko-footer">
+                <ui:Button name="sync-toggle-button" text="同期を開始" class="dennoko-button-primary" style="height: 32px;" />
+                <ui:Label name="sync-validation-message" class="dennoko-text-error" style="font-size: 11px; margin-top: 4px; display: none;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 結果表示カード（共通） -->
+        <ui:VisualElement name="result-card" class="dennoko-card" style="display: none; margin-top: 8px;">
+            <ui:Label name="result-summary" class="dennoko-text-primary" style="font-size: 12px; -unity-font-style: bold; margin-bottom: 4px;" />
+            <ui:Foldout name="result-foldout" text="結果の詳細・除外理由" value="false">
+                <ui:ScrollView style="max-height: 140px; margin-top: 4px;">
+                    <ui:Label name="result-details-text" class="dennoko-text-secondary" style="font-size: 11px; white-space: normal;" />
+                </ui:ScrollView>
+            </ui:Foldout>
+        </ui:VisualElement>
+
+        <ui:VisualElement style="height: 16px;" />
+    </ui:ScrollView>
+
+    <ui:VisualElement class="dennoko-separator" />
+
+    <!-- ステータスバー -->
+    <ui:Label name="status-label" text="Ready" class="dennoko-status" />
+
+</ui:UXML>

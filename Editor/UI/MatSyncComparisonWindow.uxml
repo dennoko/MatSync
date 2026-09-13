@@ -1,0 +1,72 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+
+    <!-- ウィンドウヘッダー -->
+    <ui:VisualElement class="dennoko-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+        <ui:Label text="MatSync 比較" class="dennoko-title" />
+        <ui:VisualElement style="flex-direction: row;">
+            <ui:Button name="compare-refresh-btn" text="再比較" class="dennoko-button-secondary" style="font-size: 11px;" />
+            <ui:Button name="compare-close-btn" text="終了" class="dennoko-button-secondary" style="font-size: 11px;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement class="dennoko-separator" />
+
+    <!-- マテリアル名表示バー -->
+    <ui:VisualElement class="matsync-compare-material-header">
+        <ui:VisualElement style="flex-grow: 1; flex-basis: 0; min-width: 0; margin-right: 4px;">
+            <ui:Label text="[左マテリアル]" class="dennoko-text-tertiary" style="font-size: 10px;" />
+            <ui:Label name="compare-left-mat-name" text="Left Material" class="dennoko-text-primary" style="font-size: 13px; -unity-font-style: bold; overflow: hidden; text-overflow: ellipsis;" />
+        </ui:VisualElement>
+        <ui:Label text="VS" class="dennoko-text-disabled" style="font-size: 13px; -unity-font-style: bold; align-self: center; margin: 0 8px;" />
+        <ui:VisualElement style="flex-grow: 1; flex-basis: 0; min-width: 0; margin-left: 4px;">
+            <ui:Label text="[右マテリアル]" class="dennoko-text-tertiary" style="font-size: 10px;" />
+            <ui:Label name="compare-right-mat-name" text="Right Material" class="dennoko-text-primary" style="font-size: 13px; -unity-font-style: bold; overflow: hidden; text-overflow: ellipsis;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- ツールバー -->
+    <ui:VisualElement class="matsync-compare-toolbar" style="flex-wrap: wrap; justify-content: space-between;">
+        <ui:VisualElement style="flex-direction: row; align-items: center; margin: 2px 0;">
+            <ui:Label text="結果の適用先:" class="dennoko-text-secondary" style="font-size: 11px; margin-right: 6px;" />
+            <ui:DropdownField name="compare-dest-dropdown" style="min-width: 180px;" />
+        </ui:VisualElement>
+
+        <ui:VisualElement style="flex-direction: row; align-items: center; margin: 2px 0;">
+            <ui:Label text="一括採用:" class="dennoko-text-tertiary" style="font-size: 10px; margin-right: 4px;" />
+            <ui:Button name="batch-select-left" text="すべて左" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 8px; margin: 0 2px;" />
+            <ui:Button name="batch-select-right" text="すべて右" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 8px; margin: 0 2px;" />
+            <ui:Button name="batch-clear" text="全解除" class="dennoko-button-secondary" style="font-size: 10px; padding: 2px 8px; margin: 0 2px;" />
+        </ui:VisualElement>
+
+        <ui:VisualElement style="flex-direction: row; align-items: center; margin: 2px 0;">
+            <ui:Toggle name="compare-diff-only-toggle" text="差分のみ表示" value="true" style="margin-right: 12px;" />
+            <ui:Toggle name="compare-include-tex-toggle" text="テクスチャを含める" value="false" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- 差分ブロック一覧スクロールビュー -->
+    <ui:ScrollView name="compare-blocks-scroll" class="dennoko-scroll" style="padding: 6px 10px;">
+        <!-- C# から動的に左右2分割ブロックカードが追加される -->
+    </ui:ScrollView>
+
+    <ui:VisualElement class="dennoko-separator" />
+
+    <!-- 固定フッター -->
+    <ui:VisualElement class="dennoko-card dennoko-footer" style="padding: 10px 14px;">
+        <ui:Label name="compare-plan-summary" text="適用先を選択してください。" class="dennoko-text-secondary" style="font-size: 11px; margin-bottom: 4px;" />
+        <ui:Label name="compare-plan-blocks" text="" class="dennoko-text-tertiary" style="font-size: 10px; margin-bottom: 6px;" />
+        
+        <ui:Button name="compare-apply-btn" text="選択した結果を適用" class="dennoko-button-primary" style="height: 32px;" />
+        <ui:Label name="compare-error-message" class="dennoko-text-error" style="font-size: 11px; margin-top: 4px; display: none;" />
+
+        <!-- 適用結果表示 -->
+        <ui:VisualElement name="compare-result-box" style="margin-top: 6px; display: none;">
+            <ui:Label name="compare-result-summary" class="dennoko-text-primary" style="font-size: 12px; -unity-font-style: bold;" />
+            <ui:Foldout name="compare-result-foldout" text="結果の詳細・除外理由" value="false">
+                <ui:ScrollView style="max-height: 100px; margin-top: 4px;">
+                    <ui:Label name="compare-result-details" class="dennoko-text-secondary" style="font-size: 11px; white-space: normal;" />
+                </ui:ScrollView>
+            </ui:Foldout>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+</ui:UXML>

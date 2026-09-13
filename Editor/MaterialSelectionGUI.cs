@@ -36,7 +36,7 @@ namespace DennokoWorks.MatSync
             }
         }
 
-        private static void Choose(ExtractionResult result, Action<Material> set, Action<string> message)
+        internal static void Choose(ExtractionResult result, Action<Material> set, Action<string> message)
         {
             if (result.Notes.Count > 0) message(string.Join("\n", result.Notes));
             if (result.Materials.Count == 0)
@@ -54,6 +54,30 @@ namespace DennokoWorks.MatSync
                 menu.AddItem(new GUIContent($"{i + 1}. {material.name}  [{path}]"), false, () => set(material));
             }
             menu.ShowAsContext();
+        }
+
+        internal static void SetupDropArea(UnityEngine.UIElements.VisualElement area, Action<ExtractionResult> onDrop)
+        {
+            if (area == null) return;
+            area.RegisterCallback<UnityEngine.UIElements.DragUpdatedEvent>(_ =>
+            {
+                if (DragAndDrop.objectReferences.Length > 0)
+                {
+                    DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+                    area.AddToClassList("matsync-drop-area--active");
+                }
+            });
+            area.RegisterCallback<UnityEngine.UIElements.DragLeaveEvent>(_ =>
+            {
+                area.RemoveFromClassList("matsync-drop-area--active");
+            });
+            area.RegisterCallback<UnityEngine.UIElements.DragPerformEvent>(_ =>
+            {
+                area.RemoveFromClassList("matsync-drop-area--active");
+                DragAndDrop.AcceptDrag();
+                var result = MaterialSelection.Extract(DragAndDrop.objectReferences);
+                onDrop?.Invoke(result);
+            });
         }
 
         internal static void Multiple(List<Material> materials, Material source, ref Vector2 scroll,
@@ -90,7 +114,7 @@ namespace DennokoWorks.MatSync
             if (remove >= 0) { beforeChange(); materials.RemoveAt(remove); }
         }
 
-        private static void Add(ExtractionResult result, List<Material> materials, Material source,
+        internal static void Add(ExtractionResult result, List<Material> materials, Material source,
             Action beforeChange, Action<string> message)
         {
             var added = result.Materials.Where(m => m != source && !materials.Contains(m)).ToList();

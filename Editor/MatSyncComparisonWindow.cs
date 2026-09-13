@@ -1,20 +1,56 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace DennokoWorks.MatSync
 {
     public sealed class MatSyncComparisonWindow : EditorWindow
     {
+        private const string DENNOKO_THEME_USS_PATH = "Assets/dennokoworks/MatSync/Editor/UI/DennokoTheme.uss";
+        private const string MATSYNC_THEME_USS_PATH = "Assets/dennokoworks/MatSync/Editor/UI/MatSyncTheme.uss";
+        private const string COMPARISON_WINDOW_UXML_PATH = "Assets/dennokoworks/MatSync/Editor/UI/MatSyncComparisonWindow.uxml";
+
+        private const string DENNOKO_THEME_USS_GUID = "DENNOKO_THEME_USS_GUID";
+        private const string MATSYNC_THEME_USS_GUID = "MATSYNC_THEME_USS_GUID";
+        private const string COMPARISON_WINDOW_UXML_GUID = "MATSYNC_COMPARISON_WINDOW_UXML_GUID";
+
         [SerializeField] private Material left, right;
         private MaterialComparison comparison;
-        private Vector2 scroll, resultScroll;
-        private string message;
         private TransferResult result;
-        private bool stale, showDetails;
+        private bool stale;
         private bool onlyDifferences = true;
-        private static readonly string[] Choices = { "変更しない", "左を採用", "右を採用" };
+
+        // UI 参照
+        private VisualElement rootContainer;
+        private Label leftMatNameLabel, rightMatNameLabel;
+        private DropdownField destDropdown;
+        private Toggle diffOnlyToggle, includeTexToggle;
+        private Button batchLeftBtn, batchRightBtn, batchClearBtn;
+        private Button refreshBtn, closeBtn, applyBtn;
+        private ScrollView blocksScroll;
+        private Label planSummaryLabel, planBlocksLabel, errorMessageLabel;
+        private VisualElement resultBox;
+        private Label resultSummaryLabel, resultDetailsLabel;
+        private Foldout resultFoldout;
+
+        // ブロックごとのUI追跡用データ構造
+        private class BlockVisualRefs
+        {
+            public ComparisonBlock Block;
+            public VisualElement Container;
+            public VisualElement LeftCard;
+            public VisualElement RightCard;
+            public Label LeftBadge;
+            public Label RightBadge;
+            public VisualElement ContentRow;
+            public Label FoldoutIcon;
+            public Label BlockTitle;
+        }
+
+        private readonly List<BlockVisualRefs> blockRefs = new List<BlockVisualRefs>();
 
         internal static void Open(Material left, Material right)
         {
@@ -24,19 +60,19 @@ namespace DennokoWorks.MatSync
             window.right = right;
             window.result = null;
             if (!alreadyOpen) window.onlyDifferences = true;
+            window.minSize = new Vector2(760, 480);
+            if (!alreadyOpen) window.position = new Rect(window.position.x, window.position.y, 1020, 720);
             window.RefreshComparison(false);
-            window.minSize = new Vector2(780, 420);
-            if (!alreadyOpen) window.position = new Rect(window.position.x, window.position.y, 1050, 700);
             window.Show();
             window.Focus();
         }
 
         private void OnEnable()
         {
-            minSize = new Vector2(780, 420);
+            minSize = new Vector2(760, 480);
             Undo.undoRedoPerformed += CheckForChanges;
             EditorApplication.projectChanged += CheckForChanges;
-            if (left && right) RefreshComparison(false);
+            if (left && right && comparison == null) RefreshComparison(false);
         }
 
         private void OnDisable()
@@ -46,148 +82,510 @@ namespace DennokoWorks.MatSync
         }
 
         private void OnInspectorUpdate() => CheckForChanges();
+
         private void CheckForChanges()
         {
             if (comparison != null)
             {
                 bool next = !comparison.IsCurrent;
-                if (next != stale) { stale = next; Repaint(); }
+                if (next != stale)
+                {
+                    stale = next;
+                    UpdatePlanDisplay();
+                }
             }
         }
 
         private void RefreshComparison(bool preserveOptions)
         {
             string invalid = LilToonBridge.Validate(left, false) ?? LilToonBridge.Validate(right, false);
-            if (invalid != null) { message = invalid; comparison = null; return; }
-            int destination = preserveOptions && comparison != null ? comparison.Destination : 0;
-            bool textures = preserveOptions && comparison != null && comparison.IncludeTextures;
-            MaterialSchema.ClearCache();
-            comparison = new MaterialComparison(left, right) { Destination = destination, IncludeTextures = textures };
-            stale = false;
-            message = null;
-            Repaint();
-        }
-
-        private void OnGUI()
-        {
-            if (comparison == null)
+            if (invalid != null)
             {
-                EditorGUILayout.HelpBox(message ?? "基本ウィンドウで左右のマテリアルを指定してください。", MessageType.Info);
-                if (GUILayout.Button("基本ウィンドウを開く")) MatSyncWindow.Open();
+                comparison = null;
+                ShowError(invalid);
                 return;
             }
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField("左: " + (left ? left.name : "参照切れ"), EditorStyles.boldLabel);
-                EditorGUILayout.LabelField("右: " + (right ? right.name : "参照切れ"), EditorStyles.boldLabel);
-                if (GUILayout.Button("再比較", GUILayout.Width(70))) RefreshComparison(true);
-                if (GUILayout.Button("比較を終了", GUILayout.Width(90))) { Close(); GUIUtility.ExitGUI(); }
-            }
-            if (comparison == null) return;
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                comparison.Destination = EditorGUILayout.Popup("結果の適用先", comparison.Destination,
-                    new[] { "未選択", "左: " + (left ? left.name : "参照切れ"), "右: " + (right ? right.name : "参照切れ") });
-                comparison.IncludeTextures = GUILayout.Toggle(comparison.IncludeTextures, "テクスチャを含める");
-                onlyDifferences = GUILayout.Toggle(onlyDifferences, "差分のみ表示");
-            }
-            EditorGUILayout.LabelField(comparison.IncludeTextures
-                ? "採用したブロックのテクスチャ参照・Tiling・Offsetも転送します。"
-                : "適用先のテクスチャ参照・Tiling・Offsetを保持します。", EditorStyles.wordWrappedMiniLabel);
-            if (stale) EditorGUILayout.HelpBox("比較中に外部変更がありました。再比較してください。採用選択はリセットされます。", MessageType.Warning);
 
-            scroll = EditorGUILayout.BeginScrollView(scroll);
-            foreach (var block in comparison.Blocks) DrawBlock(block);
-            EditorGUILayout.EndScrollView();
+            int destination = preserveOptions && comparison != null ? comparison.Destination : 0;
+            bool textures = preserveOptions && comparison != null && comparison.IncludeTextures;
+
+            MaterialSchema.ClearCache();
+            comparison = new MaterialComparison(left, right)
+            {
+                Destination = destination,
+                IncludeTextures = textures
+            };
+            stale = false;
+
+            if (rootContainer != null)
+            {
+                RebuildUI();
+            }
+        }
+
+        public void CreateGUI()
+        {
+            VisualElement root = rootVisualElement;
+            root.Clear();
+
+            root.AddToClassList("dennoko-root");
+            root.style.backgroundColor = (Color)new Color32(0x12, 0x12, 0x12, 0xFF);
+            root.style.flexGrow = 1;
+
+            DennokoUIFont.Apply(root);
+
+            LoadAndApplyStyles(root);
+
+            var uxml = LoadVisualTreeAsset(COMPARISON_WINDOW_UXML_GUID, COMPARISON_WINDOW_UXML_PATH);
+            if (uxml == null)
+            {
+                root.Add(new Label("MatSyncComparisonWindow.uxml のロードに失敗しました。"));
+                return;
+            }
+
+            uxml.CloneTree(root);
+            rootContainer = root;
+
+            BindElements(root);
+            RebuildUI();
+        }
+
+        private static void LoadAndApplyStyles(VisualElement root)
+        {
+            var ussTheme = LoadStyleSheet(DENNOKO_THEME_USS_GUID, DENNOKO_THEME_USS_PATH);
+            if (ussTheme != null) root.styleSheets.Add(ussTheme);
+
+            var ussMatSync = LoadStyleSheet(MATSYNC_THEME_USS_GUID, MATSYNC_THEME_USS_PATH);
+            if (ussMatSync != null) root.styleSheets.Add(ussMatSync);
+        }
+
+        private static StyleSheet LoadStyleSheet(string guid, string fallbackPath)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (string.IsNullOrEmpty(path)) path = fallbackPath;
+            return AssetDatabase.LoadAssetAtPath<StyleSheet>(path);
+        }
+
+        private static VisualTreeAsset LoadVisualTreeAsset(string guid, string fallbackPath)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (string.IsNullOrEmpty(path)) path = fallbackPath;
+            return AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(path);
+        }
+
+        private void BindElements(VisualElement root)
+        {
+            leftMatNameLabel = root.Q<Label>("compare-left-mat-name");
+            rightMatNameLabel = root.Q<Label>("compare-right-mat-name");
+
+            refreshBtn = root.Q<Button>("compare-refresh-btn");
+            refreshBtn.clicked += () => RefreshComparison(true);
+
+            closeBtn = root.Q<Button>("compare-close-btn");
+            closeBtn.clicked += Close;
+
+            destDropdown = root.Q<DropdownField>("compare-dest-dropdown");
+            destDropdown.RegisterValueChangedCallback(evt =>
+            {
+                if (comparison == null) return;
+                int idx = destDropdown.index;
+                comparison.Destination = idx >= 0 ? idx : 0;
+                UpdatePlanDisplay();
+            });
+
+            batchLeftBtn = root.Q<Button>("batch-select-left");
+            batchLeftBtn.clicked += () => BatchSelect(1);
+
+            batchRightBtn = root.Q<Button>("batch-select-right");
+            batchRightBtn.clicked += () => BatchSelect(2);
+
+            batchClearBtn = root.Q<Button>("batch-clear");
+            batchClearBtn.clicked += () => BatchSelect(0);
+
+            diffOnlyToggle = root.Q<Toggle>("compare-diff-only-toggle");
+            diffOnlyToggle.value = onlyDifferences;
+            diffOnlyToggle.RegisterValueChangedCallback(evt =>
+            {
+                onlyDifferences = evt.newValue;
+                FilterBlocksVisibility();
+            });
+
+            includeTexToggle = root.Q<Toggle>("compare-include-tex-toggle");
+            includeTexToggle.RegisterValueChangedCallback(evt =>
+            {
+                if (comparison == null) return;
+                comparison.IncludeTextures = evt.newValue;
+                UpdatePlanDisplay();
+            });
+
+            blocksScroll = root.Q<ScrollView>("compare-blocks-scroll");
+
+            planSummaryLabel = root.Q<Label>("compare-plan-summary");
+            planBlocksLabel = root.Q<Label>("compare-plan-blocks");
+            errorMessageLabel = root.Q<Label>("compare-error-message");
+
+            applyBtn = root.Q<Button>("compare-apply-btn");
+            applyBtn.clicked += ApplyChanges;
+
+            resultBox = root.Q<VisualElement>("compare-result-box");
+            resultSummaryLabel = root.Q<Label>("compare-result-summary");
+            resultDetailsLabel = root.Q<Label>("compare-result-details");
+            resultFoldout = root.Q<Foldout>("compare-result-foldout");
+        }
+
+        private void RebuildUI()
+        {
+            if (rootContainer == null) return;
+
+            if (comparison == null)
+            {
+                blocksScroll.Clear();
+                var msg = new Label("マテリアルが指定されていません。基本ウィンドウから比較を開始してください。");
+                msg.AddToClassList("dennoko-text-disabled");
+                msg.style.marginTop = 20;
+                msg.style.unityTextAlign = TextAnchor.MiddleCenter;
+                blocksScroll.Add(msg);
+                applyBtn.SetEnabled(false);
+                return;
+            }
+
+            // マテリアル名表示
+            leftMatNameLabel.text = left ? left.name : "参照切れ";
+            rightMatNameLabel.text = right ? right.name : "参照切れ";
+
+            // 適用先ドロップダウン初期化
+            var choices = new List<string>
+            {
+                "未選択",
+                $"左: {(left ? left.name : "参照切れ")}",
+                $"右: {(right ? right.name : "参照切れ")}"
+            };
+            destDropdown.choices = choices;
+            destDropdown.index = Mathf.Clamp(comparison.Destination, 0, choices.Count - 1);
+            includeTexToggle.value = comparison.IncludeTextures;
+
+            // 各機能ブロックのカード生成
+            BuildComparisonBlocks();
+            UpdatePlanDisplay();
+        }
+
+        private void BuildComparisonBlocks()
+        {
+            blocksScroll.Clear();
+            blockRefs.Clear();
+
+            foreach (var block in comparison.Blocks)
+            {
+                var refs = CreateBlockCard(block);
+                blockRefs.Add(refs);
+                blocksScroll.Add(refs.Container);
+            }
+
+            FilterBlocksVisibility();
+        }
+
+        private BlockVisualRefs CreateBlockCard(ComparisonBlock block)
+        {
+            int diffCount = block.Properties.Count(comparison.Different);
+            int totalCount = block.Properties.Count;
+
+            var container = new VisualElement();
+            container.AddToClassList("dennoko-card");
+
+            // ─── 左右2分割カードコンテナ（先に宣言してヘッダークリックから参照可能にする） ─────────────────
+            var contentRow = new VisualElement();
+            contentRow.AddToClassList("matsync-compare-row");
+            contentRow.style.display = block.Expanded ? DisplayStyle.Flex : DisplayStyle.None;
+
+            // ─── ブロックヘッダー ─────────────────────────
+            var header = new VisualElement();
+            header.style.flexDirection = FlexDirection.Row;
+            header.style.justifyContent = Justify.SpaceBetween;
+            header.style.alignItems = Align.Center;
+            header.style.marginBottom = 6;
+
+            var titleRow = new VisualElement();
+            titleRow.style.flexDirection = FlexDirection.Row;
+            titleRow.style.alignItems = Align.Center;
+
+            var foldoutIcon = new Label(block.Expanded ? "▼" : "▶");
+            foldoutIcon.style.fontSize = 10;
+            foldoutIcon.style.marginRight = 6;
+            foldoutIcon.AddToClassList("dennoko-text-tertiary");
+
+            var titleLabel = new Label($"{block.Name}  ─  差分 {diffCount}/{totalCount}");
+            titleLabel.AddToClassList("dennoko-section-title");
+            titleLabel.style.fontSize = 12;
+            if (diffCount > 0)
+            {
+                titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            }
+
+            titleRow.Add(foldoutIcon);
+            titleRow.Add(titleLabel);
+            header.Add(titleRow);
+
+            // 折りたたみクリック
+            header.RegisterCallback<ClickEvent>(evt =>
+            {
+                block.Expanded = !block.Expanded;
+                foldoutIcon.text = block.Expanded ? "▼" : "▶";
+                contentRow.style.display = block.Expanded ? DisplayStyle.Flex : DisplayStyle.None;
+            });
+
+            container.Add(header);
+
+            // 左側カード
+            var leftCard = CreateChoiceColumn(block, 1, comparison.Left, diffCount);
+            // 右側カード
+            var rightCard = CreateChoiceColumn(block, 2, comparison.Right, diffCount);
+
+            contentRow.Add(leftCard.Column);
+            contentRow.Add(rightCard.Column);
+            container.Add(contentRow);
+
+            var refs = new BlockVisualRefs
+            {
+                Block = block,
+                Container = container,
+                LeftCard = leftCard.Column,
+                RightCard = rightCard.Column,
+                LeftBadge = leftCard.Badge,
+                RightBadge = rightCard.Badge,
+                ContentRow = contentRow,
+                FoldoutIcon = foldoutIcon,
+                BlockTitle = titleLabel
+            };
+
+            // クリックハンドラー登録
+            leftCard.Column.RegisterCallback<ClickEvent>(evt =>
+            {
+                // 既に左が選択中なら解除(0)、そうでなければ左(1)
+                block.Choice = block.Choice == 1 ? 0 : 1;
+                UpdateBlockCardSelection(refs);
+                UpdatePlanDisplay();
+            });
+
+            rightCard.Column.RegisterCallback<ClickEvent>(evt =>
+            {
+                // 既に右が選択中なら解除(0)、そうでなければ右(2)
+                block.Choice = block.Choice == 2 ? 0 : 2;
+                UpdateBlockCardSelection(refs);
+                UpdatePlanDisplay();
+            });
+
+            UpdateBlockCardSelection(refs);
+
+            return refs;
+        }
+
+        private (VisualElement Column, Label Badge) CreateChoiceColumn(
+            ComparisonBlock block, int side, MaterialSnapshot snapshot, int diffCount)
+        {
+            var col = new VisualElement();
+            col.AddToClassList("matsync-compare-col");
+
+            // カードトップ行: マテリアル名 + 採用バッジ
+            var colHeader = new VisualElement();
+            colHeader.style.flexDirection = FlexDirection.Row;
+            colHeader.style.justifyContent = Justify.SpaceBetween;
+            colHeader.style.alignItems = Align.Center;
+            colHeader.style.marginBottom = 6;
+            colHeader.style.paddingBottom = 4;
+            colHeader.style.borderBottomWidth = 1;
+            colHeader.style.borderBottomColor = new Color(1f, 1f, 1f, 0.08f);
+
+            var nameLabel = new Label(side == 1 ? $"左: {(left ? left.name : "")}" : $"右: {(right ? right.name : "")}");
+            nameLabel.AddToClassList("dennoko-text-primary");
+            nameLabel.style.fontSize = 11;
+            nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            nameLabel.style.overflow = Overflow.Hidden;
+            nameLabel.style.textOverflow = TextOverflow.Ellipsis;
+            nameLabel.style.maxWidth = 160;
+
+            var badge = new Label("採用する");
+            badge.AddToClassList("matsync-badge");
+            badge.AddToClassList("matsync-badge--unselected");
+
+            colHeader.Add(nameLabel);
+            colHeader.Add(badge);
+            col.Add(colHeader);
+
+            // プロパティ一覧
+            foreach (string propName in block.Properties)
+            {
+                bool isDiff = comparison.Different(propName);
+                var def = comparison.Definition(propName);
+
+                var propRow = new VisualElement();
+                propRow.AddToClassList("matsync-prop-item");
+                if (isDiff) propRow.AddToClassList("matsync-prop-item--diff");
+                propRow.userData = isDiff; // フィルタ用
+
+                // プロパティ表示名
+                var propLabel = new Label((isDiff ? "≠ " : "= ") + def.Label);
+                propLabel.AddToClassList("matsync-prop-label");
+                if (isDiff) propLabel.AddToClassList("dennoko-text-primary");
+                propRow.Add(propLabel);
+
+                // 値コンテナ
+                var valContainer = new VisualElement();
+                valContainer.style.flexDirection = FlexDirection.Row;
+                valContainer.style.alignItems = Align.Center;
+
+                if (snapshot.Values.TryGetValue(propName, out var val))
+                {
+                    if (val.Definition.Type == UnityEngine.Rendering.ShaderPropertyType.Color)
+                    {
+                        var chip = new VisualElement();
+                        chip.AddToClassList("matsync-color-chip");
+                        chip.style.backgroundColor = (Color)val.Vector;
+                        valContainer.Add(chip);
+                    }
+
+                    var valText = new Label(val.Display());
+                    valText.AddToClassList("matsync-prop-value");
+                    valContainer.Add(valText);
+                }
+                else
+                {
+                    var noneText = new Label("— 不在");
+                    noneText.AddToClassList("dennoko-text-disabled");
+                    noneText.style.fontSize = 10;
+                    valContainer.Add(noneText);
+                }
+
+                propRow.Add(valContainer);
+                col.Add(propRow);
+            }
+
+            return (col, badge);
+        }
+
+        private void UpdateBlockCardSelection(BlockVisualRefs refs)
+        {
+            int choice = refs.Block.Choice;
+
+            // 左カードの採用状態（鮮やかなネオングリーンボーダー）
+            bool leftSelected = choice == 1;
+            refs.LeftCard.EnableInClassList("matsync-compare-col--selected", leftSelected);
+            refs.LeftBadge.EnableInClassList("matsync-badge--selected", leftSelected);
+            refs.LeftBadge.EnableInClassList("matsync-badge--unselected", !leftSelected);
+            refs.LeftBadge.text = leftSelected ? "✓ 採用中" : "採用する";
+
+            // 右カードの採用状態（鮮やかなネオングリーンボーダー）
+            bool rightSelected = choice == 2;
+            refs.RightCard.EnableInClassList("matsync-compare-col--selected", rightSelected);
+            refs.RightBadge.EnableInClassList("matsync-badge--selected", rightSelected);
+            refs.RightBadge.EnableInClassList("matsync-badge--unselected", !rightSelected);
+            refs.RightBadge.text = rightSelected ? "✓ 採用中" : "採用する";
+        }
+
+        private void BatchSelect(int choice)
+        {
+            if (comparison == null) return;
+            foreach (var r in blockRefs)
+            {
+                r.Block.Choice = choice;
+                UpdateBlockCardSelection(r);
+            }
+            UpdatePlanDisplay();
+        }
+
+        private void FilterBlocksVisibility()
+        {
+            foreach (var r in blockRefs)
+            {
+                int diffCount = r.Block.Properties.Count(comparison.Different);
+                if (onlyDifferences && diffCount == 0)
+                {
+                    r.Container.style.display = DisplayStyle.None;
+                }
+                else
+                {
+                    r.Container.style.display = DisplayStyle.Flex;
+
+                    // ブロック内の各プロパティ行の表示/非表示
+                    FilterPropertyItems(r.LeftCard);
+                    FilterPropertyItems(r.RightCard);
+                }
+            }
+        }
+
+        private void FilterPropertyItems(VisualElement card)
+        {
+            foreach (var child in card.Children())
+            {
+                if (child.userData is bool isDiff)
+                {
+                    child.style.display = (onlyDifferences && !isDiff) ? DisplayStyle.None : DisplayStyle.Flex;
+                }
+            }
+        }
+
+        private void UpdatePlanDisplay()
+        {
+            if (comparison == null) return;
 
             var plan = comparison.BuildPlan();
-            if (plan != null)
-            {
-                string changedBlocks = string.Join("、", plan.Changes.Select(v => v.Definition.Block).Distinct());
-                EditorGUILayout.LabelField($"適用先: {(plan.Target ? plan.Target.name : "参照切れ")} ／ 変更予定: {plan.Changes.Count}項目 ／ 対象外: {plan.SkippedProperties.Count}項目", EditorStyles.wordWrappedLabel);
-                EditorGUILayout.LabelField("変更するブロック: " + (changedBlocks.Length == 0 ? "なし" : changedBlocks), EditorStyles.wordWrappedMiniLabel);
-            }
-            EditorGUILayout.LabelField("Materialアセットを変更します。同じアセットを使うオブジェクトにも反映されます。", EditorStyles.wordWrappedMiniLabel);
             string invalidTarget = plan == null ? "適用先を選択してください。" : LilToonBridge.Validate(plan.Target, true);
-            if (invalidTarget != null) EditorGUILayout.HelpBox(invalidTarget, MessageType.Info);
-            using (new EditorGUI.DisabledScope(stale || invalidTarget != null || plan == null ||
-                plan.Changes.Count == 0 || EditorApplication.isPlayingOrWillChangePlaymode))
+
+            if (stale)
             {
-                if (GUILayout.Button("選択した結果を適用", GUILayout.Height(28)))
-                {
-                    result = comparison.Apply();
-                    if (result.Failed == 0) RefreshComparison(true);
-                    else CheckForChanges();
-                }
+                errorMessageLabel.text = "比較中にマテリアルが変更されました。再比較してください（採用選択はリセットされます）。";
+                errorMessageLabel.style.display = DisplayStyle.Flex;
+                applyBtn.SetEnabled(false);
+                return;
             }
+
+            if (invalidTarget != null)
+            {
+                planSummaryLabel.text = invalidTarget;
+                planBlocksLabel.text = "";
+                errorMessageLabel.style.display = DisplayStyle.None;
+                applyBtn.SetEnabled(false);
+                return;
+            }
+
+            string changedBlocks = string.Join("、", plan.Changes.Select(v => v.Definition.Block).Distinct());
+            planSummaryLabel.text = $"適用先: {(plan.Target ? plan.Target.name : "参照切れ")} ／ 変更予定: {plan.Changes.Count}項目 ／ 対象外: {plan.SkippedProperties.Count}項目";
+            planBlocksLabel.text = "変更するブロック: " + (changedBlocks.Length == 0 ? "なし（採用したブロックがありません）" : changedBlocks);
+
+            bool canApply = plan.Changes.Count > 0 && !EditorApplication.isPlayingOrWillChangePlaymode;
+            applyBtn.SetEnabled(canApply);
+            errorMessageLabel.style.display = DisplayStyle.None;
+        }
+
+        private void ApplyChanges()
+        {
+            if (comparison == null) return;
+
+            result = comparison.Apply();
             if (result != null)
             {
-                EditorGUILayout.HelpBox(result.Summary, result.Failed > 0 ? MessageType.Warning : MessageType.Info);
-                showDetails = EditorGUILayout.Foldout(showDetails, "適用結果・除外理由", true);
-                if (showDetails)
+                resultBox.style.display = DisplayStyle.Flex;
+                resultSummaryLabel.text = result.Summary;
+                resultSummaryLabel.EnableInClassList("dennoko-text-error", result.Failed > 0);
+                resultSummaryLabel.EnableInClassList("dennoko-text-primary", result.Failed == 0);
+                resultDetailsLabel.text = result.Text;
+
+                if (result.Failed == 0)
                 {
-                    resultScroll = EditorGUILayout.BeginScrollView(resultScroll, GUILayout.Height(110));
-                    EditorGUILayout.SelectableLabel(result.Text, EditorStyles.wordWrappedLabel,
-                        GUILayout.MinHeight(EditorStyles.wordWrappedLabel.CalcHeight(new GUIContent(result.Text), position.width - 40)));
-                    EditorGUILayout.EndScrollView();
+                    RefreshComparison(true);
+                }
+                else
+                {
+                    CheckForChanges();
                 }
             }
         }
 
-        private void DrawBlock(ComparisonBlock block)
+        private void ShowError(string msg)
         {
-            int differences = block.Properties.Count(comparison.Different);
-            if (onlyDifferences && differences == 0) return;
-            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            if (errorMessageLabel != null)
             {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    block.Expanded = EditorGUILayout.Foldout(block.Expanded,
-                        $"{block.Name}  ─  差分 {differences}/{block.Properties.Count}", true);
-                    block.Choice = EditorGUILayout.Popup(block.Choice, Choices, GUILayout.Width(120));
-                }
-                if (!block.Expanded) return;
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    GUILayout.Label("プロパティー / 状態", EditorStyles.miniBoldLabel, GUILayout.Width(260));
-                    GUILayout.Label("左", EditorStyles.miniBoldLabel, GUILayout.MinWidth(200));
-                    GUILayout.Label("右", EditorStyles.miniBoldLabel, GUILayout.MinWidth(200));
-                }
-                foreach (string name in block.Properties)
-                {
-                    if (onlyDifferences && !comparison.Different(name)) continue;
-                    var definition = comparison.Definition(name);
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        using (new EditorGUILayout.VerticalScope(GUILayout.Width(260)))
-                        {
-                            EditorGUILayout.LabelField(new GUIContent((comparison.Different(name) ? "≠ " : "= ") + name,
-                                definition.Label), EditorStyles.miniBoldLabel);
-                            EditorGUILayout.LabelField(definition.Label + " · " + comparison.PropertyStatus(name), EditorStyles.wordWrappedMiniLabel);
-                        }
-                        DrawValue(comparison.Left, name);
-                        DrawValue(comparison.Right, name);
-                    }
-                }
-            }
-        }
-
-        private static void DrawValue(MaterialSnapshot snapshot, string name)
-        {
-            using (new EditorGUILayout.VerticalScope(GUILayout.MinWidth(200)))
-            {
-                if (!snapshot.Values.TryGetValue(name, out var value))
-                { EditorGUILayout.LabelField("— 存在しません"); return; }
-                if (value.Definition.IsTexture)
-                {
-                    using (new EditorGUI.DisabledScope(true)) EditorGUILayout.ObjectField(value.Texture, typeof(Texture), false);
-                }
-                else if (value.Definition.Type == UnityEngine.Rendering.ShaderPropertyType.Color)
-                {
-                    Rect rect = EditorGUILayout.GetControlRect(false, 8);
-                    EditorGUI.DrawRect(rect, (Color)value.Vector);
-                }
-                EditorGUILayout.LabelField(value.Display(), EditorStyles.wordWrappedMiniLabel);
+                errorMessageLabel.text = msg;
+                errorMessageLabel.style.display = DisplayStyle.Flex;
             }
         }
     }

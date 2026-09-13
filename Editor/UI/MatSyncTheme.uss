@@ -1,0 +1,253 @@
+/* ============================================================
+   MatSyncTheme.uss
+   MatSync 専用スタイルシート（dennokoworks フローティングデザイン拡張）
+   ============================================================ */
+
+.dennoko-root {
+    /* MatSync 専用カラー変数 */
+    --matsync-neon-green: #00ff88;
+    --matsync-neon-green-bg: rgba(0, 255, 136, 0.07);
+    --matsync-neon-green-badge: rgba(0, 255, 136, 0.18);
+}
+
+/* ─── モード選択タブ ────────────────────────────────────────── */
+
+.dennoko-root .matsync-tabs {
+    flex-direction: row;
+    margin: 6px 8px;
+    background-color: var(--dennoko-surface-1);
+    border-radius: 4px;
+    padding: 2px;
+    border-width: 1px;
+    border-color: var(--dennoko-outline);
+    flex-shrink: 0;
+}
+
+.dennoko-root .matsync-tab-button {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 1px;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 3px;
+    padding: 5px 10px;
+    background-color: transparent;
+    color: var(--dennoko-text-secondary);
+    -unity-text-align: middle-center;
+}
+
+.dennoko-root .matsync-tab-button:hover {
+    background-color: var(--dennoko-surface-2);
+    color: var(--dennoko-text-primary);
+}
+
+.dennoko-root .matsync-tab-button--active {
+    background-color: var(--dennoko-surface-2);
+    color: var(--dennoko-text-primary);
+    -unity-font-style: bold;
+    border-color: var(--dennoko-semantic-info);
+}
+
+/* ─── ドロップエリア ────────────────────────────────────────── */
+
+.dennoko-root .matsync-drop-area {
+    border-width: 1px;
+    border-color: var(--dennoko-outline);
+    border-radius: 4px;
+    padding: 10px;
+    margin: 4px 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.dennoko-root .matsync-drop-area:hover {
+    border-color: var(--dennoko-text-tertiary);
+    background-color: var(--dennoko-surface-2);
+}
+
+.dennoko-root .matsync-drop-area--active {
+    border-color: var(--dennoko-semantic-info);
+    background-color: rgba(100, 181, 246, 0.12);
+}
+
+.dennoko-root .matsync-drop-area-text {
+    color: var(--dennoko-text-tertiary);
+    font-size: 11px;
+}
+
+/* ─── リストアイテム行 ────────────────────────────────────────── */
+
+.dennoko-root .matsync-list-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 3px 6px;
+    margin: 2px 0;
+    background-color: var(--dennoko-surface-1);
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: var(--dennoko-outline);
+}
+
+.dennoko-root .matsync-list-row:hover {
+    background-color: var(--dennoko-surface-2);
+}
+
+.dennoko-root .matsync-icon-btn {
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    margin: 0 2px;
+    -unity-text-align: middle-center;
+    flex-shrink: 0;
+}
+
+/* ─── 比較ウィンドウ: ツールバー・サブヘッダー ────────────────── */
+
+.dennoko-root .matsync-compare-toolbar {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: var(--dennoko-surface-1);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--dennoko-outline);
+    flex-shrink: 0;
+}
+
+.dennoko-root .matsync-compare-material-header {
+    flex-direction: row;
+    padding: 6px 12px;
+    background-color: var(--dennoko-surface-0);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--dennoko-outline);
+    flex-shrink: 0;
+}
+
+/* ─── 比較ウィンドウ: 左右2分割カード ────────────────────────── */
+
+.dennoko-root .matsync-compare-row {
+    flex-direction: row;
+    margin: 4px 0;
+    align-items: stretch;
+}
+
+.dennoko-root .matsync-compare-col {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 0;
+    margin: 4px;
+    border-width: 1px;
+    border-color: var(--dennoko-outline);
+    border-radius: 4px;
+    background-color: var(--dennoko-surface-1);
+    padding: 8px 10px;
+    transition-property: border-color, background-color;
+    transition-duration: 0.15s;
+}
+
+.dennoko-root .matsync-compare-col:hover {
+    background-color: var(--dennoko-surface-2);
+    border-color: var(--dennoko-text-tertiary);
+}
+
+/* 鮮やかなネオングリーンの太枠ボーダー（採用状態） */
+.dennoko-root .matsync-compare-col--selected {
+    border-width: 2px;
+    border-color: var(--matsync-neon-green);
+    background-color: var(--matsync-neon-green-bg);
+}
+
+.dennoko-root .matsync-compare-col--selected:hover {
+    border-color: #33ff9f;
+    background-color: rgba(0, 255, 136, 0.12);
+}
+
+/* ─── 採用バッジ ────────────────────────────────────────────── */
+
+.dennoko-root .matsync-badge {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    align-self: flex-start;
+    flex-shrink: 0;
+}
+
+.dennoko-root .matsync-badge--selected {
+    background-color: var(--matsync-neon-green-badge);
+    color: var(--matsync-neon-green);
+    border-width: 1px;
+    border-color: var(--matsync-neon-green);
+}
+
+.dennoko-root .matsync-badge--unselected {
+    background-color: var(--dennoko-surface-2);
+    color: var(--dennoko-text-tertiary);
+    border-width: 1px;
+    border-color: var(--dennoko-outline);
+}
+
+/* ─── プロパティ行とカラープレビュー ──────────────────────────── */
+
+.dennoko-root .matsync-prop-item {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 6px;
+    margin: 1px 0;
+    border-radius: 3px;
+}
+
+.dennoko-root .matsync-prop-item--diff {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.dennoko-root .matsync-prop-label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+    color: var(--dennoko-text-secondary);
+}
+
+.dennoko-root .matsync-prop-value {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--dennoko-text-primary);
+    -unity-text-align: middle-right;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dennoko-root .matsync-color-chip {
+    width: 22px;
+    height: 14px;
+    border-width: 1px;
+    border-color: var(--dennoko-outline);
+    border-radius: 2px;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+/* ─── ヘルプボックス代替 ────────────────────────────────────── */
+
+.dennoko-root .matsync-info-box {
+    background-color: var(--dennoko-surface-1);
+    border-left-width: 3px;
+    border-left-color: var(--dennoko-semantic-info);
+    border-radius: 3px;
+    padding: 6px 10px;
+    margin: 4px 0;
+}
+
+.dennoko-root .matsync-warning-box {
+    background-color: var(--dennoko-surface-1);
+    border-left-width: 3px;
+    border-left-color: var(--dennoko-semantic-warning);
+    border-radius: 3px;
+    padding: 6px 10px;
+    margin: 4px 0;
+}
