@@ -253,12 +253,12 @@ namespace DennokoWorks.MatSync
             leftMatNameLabel.text = left ? left.name : "参照切れ";
             rightMatNameLabel.text = right ? right.name : "参照切れ";
 
-            // 適用先ドロップダウン初期化
+            // 適用先ドロップダウン初期化（デフォルトは 0: 両マテリアル）
             var choices = new List<string>
             {
-                "未選択",
-                $"左: {(left ? left.name : "参照切れ")}",
-                $"右: {(right ? right.name : "参照切れ")}"
+                "両マテリアル（相互に反映）",
+                $"左のみ: {(left ? left.name : "参照切れ")}",
+                $"右のみ: {(right ? right.name : "参照切れ")}"
             };
             destDropdown.choices = choices;
             destDropdown.index = Mathf.Clamp(comparison.Destination, 0, choices.Count - 1);
@@ -527,8 +527,9 @@ namespace DennokoWorks.MatSync
         {
             if (comparison == null) return;
 
-            var plan = comparison.BuildPlan();
-            string invalidTarget = plan == null ? "適用先を選択してください。" : LilToonBridge.Validate(plan.Target, true);
+            var plans = comparison.BuildPlans();
+            int totalChanges = plans.Sum(p => p.Changes.Count);
+            int totalSkipped = plans.Sum(p => p.SkippedProperties.Count);
 
             if (stale)
             {
@@ -538,20 +539,16 @@ namespace DennokoWorks.MatSync
                 return;
             }
 
-            if (invalidTarget != null)
-            {
-                planSummaryLabel.text = invalidTarget;
-                planBlocksLabel.text = "";
-                errorMessageLabel.style.display = DisplayStyle.None;
-                applyBtn.SetEnabled(false);
-                return;
-            }
+            string destName;
+            if (comparison.Destination == 0) destName = "両マテリアル";
+            else if (comparison.Destination == 1) destName = left ? left.name : "左マテリアル";
+            else destName = right ? right.name : "右マテリアル";
 
-            string changedBlocks = string.Join("、", plan.Changes.Select(v => v.Definition.Block).Distinct());
-            planSummaryLabel.text = $"適用先: {(plan.Target ? plan.Target.name : "参照切れ")} ／ 変更予定: {plan.Changes.Count}項目 ／ 対象外: {plan.SkippedProperties.Count}項目";
+            string changedBlocks = string.Join("、", plans.SelectMany(p => p.Changes).Select(v => v.Definition.Block).Distinct());
+            planSummaryLabel.text = $"適用先: {destName} ／ 変更予定: {totalChanges}項目 ／ 対象外: {totalSkipped}項目";
             planBlocksLabel.text = "変更するブロック: " + (changedBlocks.Length == 0 ? "なし（採用したブロックがありません）" : changedBlocks);
 
-            bool canApply = plan.Changes.Count > 0 && !EditorApplication.isPlayingOrWillChangePlaymode;
+            bool canApply = totalChanges > 0 && !EditorApplication.isPlayingOrWillChangePlaymode;
             applyBtn.SetEnabled(canApply);
             errorMessageLabel.style.display = DisplayStyle.None;
         }
