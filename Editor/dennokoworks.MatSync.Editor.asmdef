@@ -1,0 +1,7 @@
+{
+  "name": "dennokoworks.MatSync.Editor",
+  "rootNamespace": "DennokoWorks.MatSync",
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true,
+  "references": []
+}
