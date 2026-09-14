@@ -14,10 +14,10 @@ namespace DennokoWorks.MatSync
         private const string MATSYNC_THEME_USS_PATH = "Assets/dennokoworks/MatSync/Editor/UI/MatSyncTheme.uss";
         private const string WINDOW_UXML_PATH = "Assets/dennokoworks/MatSync/Editor/UI/MatSyncWindow.uxml";
 
-        // GUID（インポート後に更新可能）
-        private const string DENNOKO_THEME_USS_GUID = "DENNOKO_THEME_USS_GUID";
-        private const string MATSYNC_THEME_USS_GUID = "MATSYNC_THEME_USS_GUID";
-        private const string WINDOW_UXML_GUID = "MATSYNC_WINDOW_UXML_GUID";
+        // .meta の GUID で解決し、見つからない場合のみ固定パスを使う
+        private const string DENNOKO_THEME_USS_GUID = "617a933f98fa1bd4ebb21e00387f64aa";
+        private const string MATSYNC_THEME_USS_GUID = "48189550503d8d749b08c3774eb9a336";
+        private const string WINDOW_UXML_GUID = "2267dbe3a6d927744b1bcb1330548259";
 
         [SerializeField] private int mode; // 0: コピー, 1: 比較, 2: 同時編集
         [SerializeField] private Material source, left, right;
@@ -108,7 +108,8 @@ namespace DennokoWorks.MatSync
 
         private void OnSyncChanged()
         {
-            UpdateUI();
+            // Sync notifications fire per edit while dragging; the target lists themselves are unchanged.
+            UpdateUI(rebuildLists: false);
         }
 
         public void CreateGUI()
@@ -392,7 +393,7 @@ namespace DennokoWorks.MatSync
             result = null;
         }
 
-        private void UpdateUI()
+        private void UpdateUI(bool rebuildLists = true)
         {
             if (rootContainer == null) return;
 
@@ -402,7 +403,7 @@ namespace DennokoWorks.MatSync
                 int validCount = copyTargets.Count(m => m && m != source && LilToonBridge.Validate(m, true) == null);
                 copyTargetsTitle.text = $"コピー先リスト ({copyTargets.Count}件)";
                 copyTargetsValidCount.text = $"実行可能な対象: {validCount}件";
-                RebuildMaterialList(copyTargetsList, copyTargets, () => { StopForSettings(); UpdateUI(); });
+                if (rebuildLists) RebuildMaterialList(copyTargetsList, copyTargets, () => { StopForSettings(); UpdateUI(); });
 
                 string invalid = LilToonBridge.Validate(source, false);
                 if (invalid == null && validCount == 0) invalid = "有効な対象を1件以上追加してください。";
@@ -448,7 +449,7 @@ namespace DennokoWorks.MatSync
                 int validCount = syncTargets.Count(m => m && m != source && LilToonBridge.Validate(m, true) == null);
                 syncTargetsTitle.text = $"同期先リスト ({syncTargets.Count}件)";
                 syncTargetsValidCount.text = $"実行可能な対象: {validCount}件";
-                RebuildMaterialList(syncTargetsList, syncTargets, () => { StopForSettings(); UpdateUI(); });
+                if (rebuildLists) RebuildMaterialList(syncTargetsList, syncTargets, () => { StopForSettings(); UpdateUI(); });
 
                 string invalid = LilToonBridge.Validate(source, false);
                 if (invalid == null && validCount == 0) invalid = "有効な対象を1件以上追加してください。";
@@ -575,7 +576,8 @@ namespace DennokoWorks.MatSync
             else
             {
                 sync.Start(source, syncTargets, syncTextures);
-                SetStatus("同期を開始しました。", StatusType.Success);
+                if (sync.Running) SetStatus("同期を開始しました。", StatusType.Success);
+                else SetStatus(sync.Status, StatusType.Error);
             }
             UpdateUI();
         }

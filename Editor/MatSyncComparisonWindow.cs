@@ -13,9 +13,9 @@ namespace DennokoWorks.MatSync
         private const string MATSYNC_THEME_USS_PATH = "Assets/dennokoworks/MatSync/Editor/UI/MatSyncTheme.uss";
         private const string COMPARISON_WINDOW_UXML_PATH = "Assets/dennokoworks/MatSync/Editor/UI/MatSyncComparisonWindow.uxml";
 
-        private const string DENNOKO_THEME_USS_GUID = "DENNOKO_THEME_USS_GUID";
-        private const string MATSYNC_THEME_USS_GUID = "MATSYNC_THEME_USS_GUID";
-        private const string COMPARISON_WINDOW_UXML_GUID = "MATSYNC_COMPARISON_WINDOW_UXML_GUID";
+        private const string DENNOKO_THEME_USS_GUID = "617a933f98fa1bd4ebb21e00387f64aa";
+        private const string MATSYNC_THEME_USS_GUID = "48189550503d8d749b08c3774eb9a336";
+        private const string COMPARISON_WINDOW_UXML_GUID = "8d93c6e164279374c9f551347deb0f6e";
 
         [SerializeField] private Material left, right;
         private MaterialComparison comparison;
@@ -81,7 +81,17 @@ namespace DennokoWorks.MatSync
             EditorApplication.projectChanged -= CheckForChanges;
         }
 
-        private void OnInspectorUpdate() => CheckForChanges();
+        private const double StaleCheckInterval = 1.0;
+        private double nextStaleCheck;
+
+        // Serializing both materials is costly; Apply re-validates anyway, so a slower poll is enough here.
+        private void OnInspectorUpdate()
+        {
+            double now = EditorApplication.timeSinceStartup;
+            if (now < nextStaleCheck) return;
+            nextStaleCheck = now + StaleCheckInterval;
+            CheckForChanges();
+        }
 
         private void CheckForChanges()
         {
@@ -102,6 +112,8 @@ namespace DennokoWorks.MatSync
             if (invalid != null)
             {
                 comparison = null;
+                stale = false;
+                RebuildUI();
                 ShowError(invalid);
                 return;
             }
@@ -215,6 +227,8 @@ namespace DennokoWorks.MatSync
             {
                 if (comparison == null) return;
                 comparison.IncludeTextures = evt.newValue;
+                // Per-property statuses depend on the texture option; choices live on the blocks and survive.
+                BuildComparisonBlocks();
                 UpdatePlanDisplay();
             });
 
@@ -245,6 +259,9 @@ namespace DennokoWorks.MatSync
                 msg.style.marginTop = 20;
                 msg.style.unityTextAlign = TextAnchor.MiddleCenter;
                 blocksScroll.Add(msg);
+                blockRefs.Clear();
+                planSummaryLabel.text = string.Empty;
+                planBlocksLabel.text = string.Empty;
                 applyBtn.SetEnabled(false);
                 return;
             }
@@ -262,7 +279,7 @@ namespace DennokoWorks.MatSync
             };
             destDropdown.choices = choices;
             destDropdown.index = Mathf.Clamp(comparison.Destination, 0, choices.Count - 1);
-            includeTexToggle.value = comparison.IncludeTextures;
+            includeTexToggle.SetValueWithoutNotify(comparison.IncludeTextures);
 
             // 各機能ブロックのカード生成
             BuildComparisonBlocks();
@@ -456,6 +473,17 @@ namespace DennokoWorks.MatSync
                 }
 
                 propRow.Add(valContainer);
+
+                // 差分があっても適用されない理由（テクスチャ保持・不在・内部管理値など）を示す
+                string status = comparison.PropertyStatus(propName);
+                if (isDiff && status != MaterialComparison.DiffStatus)
+                {
+                    var statusLabel = new Label(status);
+                    statusLabel.AddToClassList("dennoko-text-warning");
+                    statusLabel.style.fontSize = 10;
+                    propRow.Add(statusLabel);
+                }
+
                 col.Add(propRow);
             }
 

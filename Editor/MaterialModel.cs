@@ -188,14 +188,29 @@ namespace DennokoWorks.MatSync
                 return "埋め込みマテリアルには書き込めません。.matアセットを指定してください。";
             if (!AssetDatabase.IsOpenForEdit(material, StatusQueryOptions.UseCachedIfPossible))
                 return "アセットが書き込み可能な状態ではありません。";
+            return FileWriteState(path);
+        }
+
+        private const double FileStateLifetime = 1.0;
+        private static readonly Dictionary<string, (double Time, string Reason)> FileStates =
+            new Dictionary<string, (double, string)>();
+
+        // Validate runs from UI refreshes and sync ticks; avoid touching the file system on every call.
+        private static string FileWriteState(string path)
+        {
+            double now = EditorApplication.timeSinceStartup;
+            if (FileStates.TryGetValue(path, out var cached) && now - cached.Time < FileStateLifetime)
+                return cached.Reason;
+            string reason = null;
             try
             {
-                if (!File.Exists(path)) return "アセットファイルが見つかりません。";
-                if ((File.GetAttributes(path) & FileAttributes.ReadOnly) != 0)
-                    return "アセットが読み取り専用です。";
+                if (!File.Exists(path)) reason = "アセットファイルが見つかりません。";
+                else if ((File.GetAttributes(path) & FileAttributes.ReadOnly) != 0)
+                    reason = "アセットが読み取り専用です。";
             }
-            catch (Exception e) { return "書き込み可否を確認できません: " + e.Message; }
-            return null;
+            catch (Exception e) { reason = "書き込み可否を確認できません: " + e.Message; }
+            FileStates[path] = (now, reason);
+            return reason;
         }
 
         internal static void Reconcile(Material material, HashSet<string> changed, bool includeTextures)

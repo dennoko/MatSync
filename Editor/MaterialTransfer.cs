@@ -32,8 +32,20 @@ namespace DennokoWorks.MatSync
             if (!target.Values.TryGetValue(definition.Name, out var destination)) return "適用先に存在しません";
             if (!string.IsNullOrEmpty(destination.Definition.Exclusion)) return destination.Definition.Exclusion;
             if (!MaterialSchema.Compatible(definition, destination.Definition)) return "型／テクスチャ次元が非互換です";
-            if (source.Shader != target.Shader && definition.Block == "透過・描画設定")
-                return "描画設定は同じシェーダー間のみ対応します";
+            if (definition.Block == RenderBlock) return RenderStateMismatch(source, target);
+            return null;
+        }
+
+        internal const string RenderBlock = "透過・描画設定";
+
+        // Render settings only make sense for the same shader and rendering mode. lilToonMulti keeps the
+        // mode in _TransparentMode on one shader, and SetupMultiMaterial does not rebuild blend/ZWrite state.
+        internal static string RenderStateMismatch(MaterialSnapshot a, MaterialSnapshot b)
+        {
+            if (a.Shader != b.Shader) return "描画設定は同じシェーダー間のみ対応します";
+            bool hasA = a.Values.TryGetValue("_TransparentMode", out var modeA);
+            bool hasB = b.Values.TryGetValue("_TransparentMode", out var modeB);
+            if (hasA != hasB || (hasA && !modeA.SameAs(modeB))) return "描画設定は同じ描画モード間のみ対応します";
             return null;
         }
 

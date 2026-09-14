@@ -20,6 +20,8 @@ namespace DennokoWorks.MatSync
         private MaterialSnapshot baseline;
         private bool includeTextures, busy;
         private int recordedGroup = -1;
+        private const double ValidationInterval = 0.5;
+        private double nextValidation;
         private readonly HashSet<Material> recordedTargets = new HashSet<Material>();
 
         internal void Start(Material from, IEnumerable<Material> to, bool textures)
@@ -111,6 +113,19 @@ namespace DennokoWorks.MatSync
             {
                 if (EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode)
                 { Stop("コンパイル／Play Modeへの遷移により停止しました。"); return; }
+                if (!source || !source.shader) { Stop("同期元が失われました。"); return; }
+                if (source.shader != baseline.Shader)
+                { Stop("同期元のシェーダー変更を検出しました。対象を確認して再開してください。"); return; }
+                var current = MaterialSnapshot.Capture(source);
+                var names = new HashSet<string>(current.Values.Where(pair =>
+                    !baseline.Values.TryGetValue(pair.Key, out var previous) || !pair.Value.SameAs(previous))
+                    .Select(pair => pair.Key));
+
+                // Asset validation and the Inspector scan are costly; run them on edits or at an interval only.
+                double now = EditorApplication.timeSinceStartup;
+                if (names.Count == 0 && now < nextValidation) return;
+                nextValidation = now + ValidationInterval;
+
                 string invalid = LilToonBridge.Validate(source, false);
                 if (invalid != null) { Stop("同期元: " + invalid); return; }
                 if (IsMultiEdit()) { Stop("同期元を含む複数マテリアル編集を検出したため停止しました。単一選択で再開してください。"); return; }
@@ -130,12 +145,6 @@ namespace DennokoWorks.MatSync
                     Changed?.Invoke();
                 }
                 if (targets.Count == 0) { Stop("有効な同期先がなくなったため停止しました。"); return; }
-                if (source.shader != baseline.Shader)
-                { Stop("同期元のシェーダー変更を検出しました。対象を確認して再開してください。"); return; }
-                var current = MaterialSnapshot.Capture(source);
-                var names = new HashSet<string>(current.Values.Where(pair =>
-                    !baseline.Values.TryGetValue(pair.Key, out var previous) || !pair.Value.SameAs(previous))
-                    .Select(pair => pair.Key));
                 baseline = current;
                 if (names.Count == 0) return;
                 LastResult = MaterialTransfer.Copy(source, targets, includeTextures, names, true, RecordTarget);

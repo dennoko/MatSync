@@ -52,9 +52,16 @@ namespace DennokoWorks.MatSync
             if (!string.IsNullOrEmpty(left.Definition.Exclusion)) return left.Definition.Exclusion;
             if (!string.IsNullOrEmpty(right.Definition.Exclusion)) return right.Definition.Exclusion;
             if (left.Definition.IsTexture && !IncludeTextures) return "テクスチャ保持・適用対象外";
-            if (Left.Shader != Right.Shader && left.Definition.Block == "透過・描画設定") return "描画設定は同一シェーダー間のみ対応";
-            return Different(name) ? "差分あり" : "同じ値";
+            if (left.Definition.Block == MaterialTransfer.RenderBlock)
+            {
+                string mismatch = MaterialTransfer.RenderStateMismatch(Left, Right);
+                if (mismatch != null) return mismatch;
+            }
+            return Different(name) ? DiffStatus : SameStatus;
         }
+
+        internal const string DiffStatus = "差分あり";
+        internal const string SameStatus = "同じ値";
 
         internal List<TransferPlan> BuildPlans()
         {
@@ -117,12 +124,6 @@ namespace DennokoWorks.MatSync
             }
 
             return plans;
-        }
-
-        internal TransferPlan BuildPlan()
-        {
-            var plans = BuildPlans();
-            return plans.FirstOrDefault();
         }
 
         internal TransferResult Apply()
